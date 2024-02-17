@@ -1,0 +1,34 @@
+name: Terraform Workflow for validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: terraform-validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+
+      - name: Start Terraform
+        run: terraform init
+
+      - name: Validate Terraform
+        run: terraform validate
+
+      - name: Check failure(optional)
+        if: failure()
+        run: exit 1
+
+      - name: Workflow succesfull
+        if: ${{ success() }}
+        run: echo "Terraform workflow successful."
