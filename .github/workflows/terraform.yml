@@ -1,9 +1,14 @@
 name: Terraform Workflow for validation
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  pull_request_target:
+    branches: -main
+  workflow_dispatch:
+
 
 jobs:
   build:
