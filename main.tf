@@ -11,7 +11,7 @@ resource "google_compute_network" "vpc_1" {
   routing_mode            = "REGIONAL"
 }
 
-resourcemistakehere "google_compute_subnetwork" "webapp" {
+resource "google_compute_subnetwork" "webapp" {
   name          = var.subnet1
   ip_cidr_range = "10.0.1.0/24"
   network       = google_compute_network.vpc_1.self_link
