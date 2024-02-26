@@ -107,10 +107,10 @@ variable "app_name" {
   
 }
 
-variable "vpcs" {
+variable "vpc" {
   description = "list of all vpc"
-  type        = list(string)
-  default     = ["new-vpc"]
+  type        = string
+  default     = "new-vpc"
 }
 
 variable "db_name" {
@@ -138,4 +138,29 @@ variable "deny_tcp" {
   type = string
   default = "deny-all"
   description = "name of deny firewall"
+}
+
+variable "disk_type" {
+  type    = string
+  default = "pd-ssd"
+}
+
+variable "disk_size" {
+  type    = number
+  default = 100
+}
+
+variable "ipv4_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "private_network" {
+  type    = string
+  default = "YOUR_CUSTOM_VPC"
+}
+
+variable "availability_type" {
+  type    = string
+  default = "REGIONAL"
 }
