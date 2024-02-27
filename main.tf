@@ -40,6 +40,7 @@ resource "google_compute_firewall" "deny_tcp" {
 
 resource "google_compute_network" "vpc" {
   provider                =   google-beta
+  project = var.project_id
   name                            = var.vpc
   auto_create_subnetworks         = var.auto_create_subnetworks
   routing_mode                    = var.routing_mode
@@ -67,12 +68,18 @@ resource "google_compute_subnetwork" "db" {
 }
 # add-ons
 
-resource "google_compute_global_address" "private_ip_address" {
-  name         = "private-ip-address"
-  address_type = "INTERNAL"
-  purpose      = "VPC_PEERING"
-  network      = google_compute_network.vpc.id
+resource "google_compute_global_address" "private_ip_alloc" {
+  name          = "private-ip-alloc"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
   prefix_length = 16
+  network       = google_compute_network.vpc.id
+}
+
+resource "google_service_networking_connection" "default" {
+  network                 = google_compute_network.vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
 }
 # resource "google_compute_global_forwarding_rule" "default" {
 #   provider              = google-beta
@@ -121,6 +128,7 @@ resource "google_sql_database_instance" "db_instance" {
   database_version = "MYSQL_8_0"
   region             = var.region
   deletion_protection = false
+  depends_on = [google_service_networking_connection.default]
   settings {
     tier = "db-f1-micro"
     disk_type = var.disk_type
