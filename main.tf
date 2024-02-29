@@ -22,12 +22,12 @@ resource "google_compute_firewall" "deny_tcp" {
   name     = var.deny_tcp
   network  = google_compute_network.vpc.self_link
 
-  deny {
+  allow {
     protocol = var.tcp
     ports    = var.firewall_deny
   }
 
-  deny {
+  allow {
     protocol = var.udp
     ports    = var.firewall_deny
   }
@@ -100,29 +100,6 @@ resource "google_compute_route" "webapp" {
   tags             = ["${var.vpc}-${var.app_name}"]
 }
 
-# resource "google_compute_instance" "vm_instance_webapp" {
-#   for_each     = google_compute_network.vpc
-#   name         = var.vm_instance_name
-#   machine_type = var.machine_type
-#   zone         = var.zone
-
-#   boot_disk {
-#     initialize_params {
-#       image = "projects/${var.project_id}/global/images/${var.image_name}"
-#       size  = var.image_size
-#       type  = var.image_type
-#     }
-#   }
-
-#   network_interface {
-#     network    = each.value.self_link
-#     subnetwork = google_compute_subnetwork.webapp[each.key].self_link
-#     access_config {
-#     }
-#   }
-#   tags = ["${each.key}-${var.app_name}", "http-server"]
-# }
-
 resource "google_sql_database_instance" "db_instance" {
   name = "db-instance"
   database_version = "MYSQL_8_0"
@@ -148,12 +125,12 @@ resource "google_sql_database_instance" "db_instance" {
 }
 
 resource "google_sql_database" "database" {
-  name     = "webapp"
+  name     = "cloud"
   instance = google_sql_database_instance.db_instance.name
 }
 
 resource "google_sql_user" "db_user" {
-  name     = "webapp"
+  name     = "root"
   instance = google_sql_database_instance.db_instance.name
   password = random_password.password.result
 }
@@ -162,4 +139,35 @@ resource "random_password" "password" {
   length           = 16
   special          = true
   override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "google_compute_instance" "vm_instance_webapp" {
+  name         = var.vm_instance_name
+  machine_type = var.machine_type
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = "projects/${var.project_id}/global/images/${var.image_name}"
+      size  = var.image_size
+      type  = var.image_type
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.vpc.self_link
+    subnetwork = google_compute_subnetwork.webapp.self_link
+    access_config {
+    }
+  }
+  tags = ["${var.vpc}-${var.app_name}", "http-server"]
+
+  metadata_startup_script = <<-EOT
+  sudo bash -c 'cat > /opt/csye6225/webapp/.env' <<EOF
+  host=${google_sql_database_instance.db_instance.private_ip_address}
+  username=${google_sql_user.db_user.name}
+  password=${random_password.password.result}
+  database=${google_sql_database.database.name}
+  EOF
+  EOT
 }
