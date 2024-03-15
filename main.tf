@@ -160,7 +160,6 @@ resource "google_compute_instance" "vm_instance_webapp" {
     access_config {
     }
   }
-  tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
   metadata_startup_script = <<-EOT
   sudo bash -c 'cat > /opt/csye6225/webapp/.env' <<EOF
