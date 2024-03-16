@@ -164,3 +164,28 @@ variable "availability_type" {
   type    = string
   default = "REGIONAL"
 }
+
+variable "azone" {
+  type    = string
+  default = "ayush-kiledar-webapp.me." 
+}
+
+variable "ztype" {
+  type    = string
+  default = "A" 
+}
+
+variable "ttl" {
+  type    = number
+  default = 300  
+}
+
+variable "zone_name" {
+  type    = string
+  default = "webapp-zone"
+}
+
+variable "service_email" {
+  type    = string
+  default = "service-account-1@dev-assignment4.iam.gserviceaccount.com"
+}

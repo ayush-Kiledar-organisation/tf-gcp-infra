@@ -141,10 +141,21 @@ resource "random_password" "password" {
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
+resource "google_service_account" "service_account" {
+  account_id   = "service-account-1"
+  display_name = "service-account-1"
+  project = "dev-assignment4"
+}
+
 resource "google_compute_instance" "vm_instance_webapp" {
   name         = var.vm_instance_name
   machine_type = var.machine_type
   zone         = var.zone
+
+  service_account {
+    email = var.service_email
+   scopes =  ["cloud-platform"]
+  }
 
   boot_disk {
     initialize_params {
@@ -160,6 +171,7 @@ resource "google_compute_instance" "vm_instance_webapp" {
     access_config {
     }
   }
+  tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
   metadata_startup_script = <<-EOT
   sudo bash -c 'cat > /opt/csye6225/webapp/.env' <<EOF
@@ -169,4 +181,29 @@ resource "google_compute_instance" "vm_instance_webapp" {
   database=${google_sql_database.database.name}
   EOF
   EOT
+
+  allow_stopping_for_update = true
+}
+
+resource "google_dns_record_set" "dns_record" {
+  name    = var.azone
+  type    = var.ztype
+  ttl     = var.ttl
+  managed_zone = var.zone_name
+  rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
+}
+
+resource "google_project_iam_binding" "logging_admin" {
+  project = var.project_id
+  role = "roles/logging.admin"
+  members = [
+    "serviceAccount:${var.service_email}",
+  ]
+}
+resource "google_project_iam_binding" "monitoring_metric_writer" {
+  project = var.project_id
+  role = "roles/monitoring.editor"
+  members = [
+    "serviceAccount:${var.service_email}",
+  ]
 }
