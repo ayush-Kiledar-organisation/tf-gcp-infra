@@ -80,6 +80,7 @@ resource "google_service_networking_connection" "default" {
   network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
+  deletion_policy = "ABANDON"
 }
 # resource "google_compute_global_forwarding_rule" "default" {
 #   provider              = google-beta
@@ -197,13 +198,13 @@ resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
   role = "roles/logging.admin"
   members = [
-    "serviceAccount:${var.service_email}",
+    "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
 resource "google_project_iam_binding" "monitoring_metric_writer" {
   project = var.project_id
   role = "roles/monitoring.editor"
   members = [
-    "serviceAccount:${var.service_email}",
+    "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
