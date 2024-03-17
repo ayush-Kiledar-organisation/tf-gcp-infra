@@ -125,20 +125,19 @@ resource "google_sql_database_instance" "db_instance" {
 }
 
 resource "google_sql_database" "database" {
-  name     = "cloud"
+  name     = "webappnew"
   instance = google_sql_database_instance.db_instance.name
 }
 
 resource "google_sql_user" "db_user" {
-  name     = "root"
+  name     = "webappnew"
   instance = google_sql_database_instance.db_instance.name
   password = random_password.password.result
 }
 
 resource "random_password" "password" {
-  length           = 16
+  length           = 8
   special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
 resource "google_service_account" "service_account" {
@@ -173,14 +172,15 @@ resource "google_compute_instance" "vm_instance_webapp" {
   }
   tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
-  metadata_startup_script = <<-EOT
-  sudo bash -c 'cat > /opt/csye6225/webapp/.env' <<EOF
-  host=${google_sql_database_instance.db_instance.private_ip_address}
-  username=${google_sql_user.db_user.name}
-  password=${random_password.password.result}
-  database=${google_sql_database.database.name}
-  EOF
+  metadata = {
+    startup-script=<<-EOT
+  sudo bash -c 'cat > /opt/csye6225/webapp/.env'
+  echo "db_database=${google_sql_database.database.name}" >> /opt/csye6225/webapp/.env
+  echo "db_username=${google_sql_user.db_user.name}" >> /opt/csye6225/webapp/.env
+  echo "db_password=${random_password.password.result}" >> /opt/csye6225/webapp/.env
+  echo "db_host=${google_sql_database_instance.db_instance.private_ip_address}" >> /opt/csye6225/webapp/.env
   EOT
+  }
 
   allow_stopping_for_update = true
 }
