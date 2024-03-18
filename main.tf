@@ -108,7 +108,7 @@ resource "google_sql_database_instance" "db_instance" {
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
   settings {
-    tier = "db-f1-micro"
+    tier = "db-n1-standard-1"
     disk_type = var.disk_type
     disk_size = var.disk_size
     ip_configuration {
@@ -126,12 +126,12 @@ resource "google_sql_database_instance" "db_instance" {
 }
 
 resource "google_sql_database" "database" {
-  name     = "webappnew"
+  name     = "webapp"
   instance = google_sql_database_instance.db_instance.name
 }
 
 resource "google_sql_user" "db_user" {
-  name     = "webappnew"
+  name     = "webapp"
   instance = google_sql_database_instance.db_instance.name
   password = random_password.password.result
 }
