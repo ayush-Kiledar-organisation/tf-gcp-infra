@@ -154,7 +154,7 @@ resource "google_compute_instance" "vm_instance_webapp" {
 
   service_account {
     email = var.service_email
-   scopes =  ["cloud-platform"]
+   scopes =  ["logging-write","monitoring-read","monitoring-write"]
   }
 
   boot_disk {
