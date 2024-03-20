@@ -133,12 +133,12 @@ resource "google_sql_database" "database" {
 resource "google_sql_user" "db_user" {
   name     = var.database_user
   instance = google_sql_database_instance.db_instance.name
-  password = random_password.password.result
+  password = random_password.db_user_password.result
 }
 
-resource "random_password" "password" {
-  length           = 8
-  special          = true
+resource "random_password" "db_user_password" {
+  length  = var.rm_len
+  special = var.rm_special
 }
 
 resource "google_service_account" "service_account" {
@@ -156,7 +156,6 @@ resource "google_compute_instance" "vm_instance_webapp" {
     email = var.service_email
    scopes =  var.vm_service_roles
   }
-
   boot_disk {
     initialize_params {
       image = "projects/${var.project_id}/global/images/${var.image_name}"
@@ -174,14 +173,17 @@ resource "google_compute_instance" "vm_instance_webapp" {
   tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
   metadata = {
-    startup-script=<<-EOT
-  sudo bash -c 'cat > /opt/csye6225/webapp/.env'
-  echo "db_database=${google_sql_database.database.name}" >> /opt/csye6225/webapp/.env
-  echo "db_username=${google_sql_user.db_user.name}" >> /opt/csye6225/webapp/.env
-  echo "db_password=${random_password.password.result}" >> /opt/csye6225/webapp/.env
-  echo "db_host=${google_sql_database_instance.db_instance.private_ip_address}" >> /opt/csye6225/webapp/.env
-  EOT
-  }
+  startup-script = <<-SCRIPT
+sudo bash <<EOF
+cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
+db_host=${google_sql_database_instance.db_instance.private_ip_address}
+db_username=${google_sql_user.db_user.name}
+db_password=${random_password.db_user_password.result}
+db_database=${google_sql_database.database.name}
+INNER_EOF
+EOF
+  SCRIPT
+}
 
   allow_stopping_for_update = true
 }
