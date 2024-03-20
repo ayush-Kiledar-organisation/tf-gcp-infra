@@ -102,13 +102,13 @@ resource "google_compute_route" "webapp" {
 }
 
 resource "google_sql_database_instance" "db_instance" {
-  name = "db-instance"
-  database_version = "MYSQL_8_0"
+  name = var.db_instance_name
+  database_version = var.db_instance_version
   region             = var.region
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
   settings {
-    tier = "db-n1-standard-1"
+    tier = var.db_instance_tier
     disk_type = var.disk_type
     disk_size = var.disk_size
     ip_configuration {
@@ -126,12 +126,12 @@ resource "google_sql_database_instance" "db_instance" {
 }
 
 resource "google_sql_database" "database" {
-  name     = "webapp"
+  name     = var.database_name
   instance = google_sql_database_instance.db_instance.name
 }
 
 resource "google_sql_user" "db_user" {
-  name     = "webapp"
+  name     = var.database_user
   instance = google_sql_database_instance.db_instance.name
   password = random_password.password.result
 }
@@ -142,9 +142,9 @@ resource "random_password" "password" {
 }
 
 resource "google_service_account" "service_account" {
-  account_id   = "service-account-1"
-  display_name = "service-account-1"
-  project = "dev-assignment4"
+  account_id   = var.service_id
+  display_name = var.service_display_name
+  project = var.project_id
 }
 
 resource "google_compute_instance" "vm_instance_webapp" {
@@ -154,7 +154,7 @@ resource "google_compute_instance" "vm_instance_webapp" {
 
   service_account {
     email = var.service_email
-   scopes =  ["logging-write","monitoring-read","monitoring-write"]
+   scopes =  var.vm_service_roles
   }
 
   boot_disk {
@@ -196,14 +196,14 @@ resource "google_dns_record_set" "dns_record" {
 
 resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
-  role = "roles/logging.admin"
+  role = var.logging_role
   members = [
     "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
 resource "google_project_iam_binding" "monitoring_metric_writer" {
   project = var.project_id
-  role = "roles/monitoring.editor"
+  role = var.monitoring_role
   members = [
     "serviceAccount:${google_service_account.service_account.email}",
   ]
