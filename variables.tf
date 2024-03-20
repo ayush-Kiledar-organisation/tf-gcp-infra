@@ -164,3 +164,80 @@ variable "availability_type" {
   type    = string
   default = "REGIONAL"
 }
+
+variable "azone" {
+  type    = string
+  default = "ayush-kiledar-webapp.me." 
+}
+
+variable "ztype" {
+  type    = string
+  default = "A" 
+}
+
+variable "ttl" {
+  type    = number
+  default = 300  
+}
+
+variable "zone_name" {
+  type    = string
+  default = "webapp-zone"
+}
+
+variable "service_email" {
+  type    = string
+  default = "service-account-1@dev-assignment4.iam.gserviceaccount.com"
+}
+
+variable "monitoring_role" {
+  type    = string
+  default = "roles/monitoring.metricWriter" 
+}
+
+variable "logging_role" {
+  type    = string
+  default = "roles/logging.admin"
+}
+
+variable "vm_service_roles" {
+  type    = list(string)
+  default = ["logging-write","monitoring-read","monitoring-write"]
+  
+}
+
+variable "service_id" {
+  type    = string
+  default = "service-account-1" 
+}
+
+variable "service_display_name" {
+  type    = string
+  default = "service-account-1"
+}
+
+variable "database_name" {
+  type    = string
+  default = "webapp"
+  
+}
+
+variable "database_user" {
+  type    = string
+  default = "webapp" 
+}
+
+variable "db_instance_tier" {
+  type    = string
+  default = "db-n1-standard-1"
+}
+
+variable "db_instance_version" {
+  type    = string
+  default = "MYSQL_8_0"
+}
+
+variable "db_instance_name" {
+  type    = string
+  default = "db-instance"
+}

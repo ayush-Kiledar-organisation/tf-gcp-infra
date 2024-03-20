@@ -80,6 +80,7 @@ resource "google_service_networking_connection" "default" {
   network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
+  deletion_policy = "ABANDON"
 }
 # resource "google_compute_global_forwarding_rule" "default" {
 #   provider              = google-beta
@@ -101,13 +102,13 @@ resource "google_compute_route" "webapp" {
 }
 
 resource "google_sql_database_instance" "db_instance" {
-  name = "db-instance"
-  database_version = "MYSQL_8_0"
+  name = var.db_instance_name
+  database_version = var.db_instance_version
   region             = var.region
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
   settings {
-    tier = "db-f1-micro"
+    tier = var.db_instance_tier
     disk_type = var.disk_type
     disk_size = var.disk_size
     ip_configuration {
@@ -125,26 +126,36 @@ resource "google_sql_database_instance" "db_instance" {
 }
 
 resource "google_sql_database" "database" {
-  name     = "cloud"
+  name     = var.database_name
   instance = google_sql_database_instance.db_instance.name
 }
 
 resource "google_sql_user" "db_user" {
-  name     = "root"
+  name     = var.database_user
   instance = google_sql_database_instance.db_instance.name
   password = random_password.password.result
 }
 
 resource "random_password" "password" {
-  length           = 16
+  length           = 8
   special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "google_service_account" "service_account" {
+  account_id   = var.service_id
+  display_name = var.service_display_name
+  project = var.project_id
 }
 
 resource "google_compute_instance" "vm_instance_webapp" {
   name         = var.vm_instance_name
   machine_type = var.machine_type
   zone         = var.zone
+
+  service_account {
+    email = var.service_email
+   scopes =  var.vm_service_roles
+  }
 
   boot_disk {
     initialize_params {
@@ -162,12 +173,38 @@ resource "google_compute_instance" "vm_instance_webapp" {
   }
   tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
-  metadata_startup_script = <<-EOT
-  sudo bash -c 'cat > /opt/csye6225/webapp/.env' <<EOF
-  host=${google_sql_database_instance.db_instance.private_ip_address}
-  username=${google_sql_user.db_user.name}
-  password=${random_password.password.result}
-  database=${google_sql_database.database.name}
-  EOF
+  metadata = {
+    startup-script=<<-EOT
+  sudo bash -c 'cat > /opt/csye6225/webapp/.env'
+  echo "db_database=${google_sql_database.database.name}" >> /opt/csye6225/webapp/.env
+  echo "db_username=${google_sql_user.db_user.name}" >> /opt/csye6225/webapp/.env
+  echo "db_password=${random_password.password.result}" >> /opt/csye6225/webapp/.env
+  echo "db_host=${google_sql_database_instance.db_instance.private_ip_address}" >> /opt/csye6225/webapp/.env
   EOT
+  }
+
+  allow_stopping_for_update = true
+}
+
+resource "google_dns_record_set" "dns_record" {
+  name    = var.azone
+  type    = var.ztype
+  ttl     = var.ttl
+  managed_zone = var.zone_name
+  rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
+}
+
+resource "google_project_iam_binding" "logging_admin" {
+  project = var.project_id
+  role = var.logging_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+resource "google_project_iam_binding" "monitoring_metric_writer" {
+  project = var.project_id
+  role = var.monitoring_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
 }
