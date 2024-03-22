@@ -208,3 +208,10 @@ resource "google_project_iam_binding" "monitoring_metric_writer" {
     "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
+resource "google_pubsub_topic" "verify_email" {
+  name = "verify_email"
+  labels = {
+    foo = "bar"
+  }
+  message_retention_duration = "604800s"
+}
