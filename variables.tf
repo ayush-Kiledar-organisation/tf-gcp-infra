@@ -241,3 +241,13 @@ variable "db_instance_name" {
   type    = string
   default = "db-instance"
 }
+
+variable "rm_len" {
+  type    = number
+  default = 8
+}
+
+variable "rm_special" {
+  type = bool
+  default = false
+}
