@@ -101,45 +101,45 @@ resource "google_compute_route" "webapp" {
   tags             = ["${var.vpc}-${var.app_name}"]
 }
 
-resource "google_sql_database_instance" "db_instance" {
-  name = var.db_instance_name
-  database_version = var.db_instance_version
-  region             = var.region
-  deletion_protection = false
-  depends_on = [google_service_networking_connection.default]
-  settings {
-    tier = var.db_instance_tier
-    disk_type = var.disk_type
-    disk_size = var.disk_size
-    ip_configuration {
-      ipv4_enabled = false
-      private_network = google_compute_network.vpc.self_link
-    }
-    backup_configuration {
-      enabled = true
-      binary_log_enabled = true
-    }
-    availability_type = var.availability_type
+# resource "google_sql_database_instance" "db_instance" {
+#   name = var.db_instance_name
+#   database_version = var.db_instance_version
+#   region             = var.region
+#   deletion_protection = false
+#   depends_on = [google_service_networking_connection.default]
+#   settings {
+#     tier = var.db_instance_tier
+#     disk_type = var.disk_type
+#     disk_size = var.disk_size
+#     ip_configuration {
+#       ipv4_enabled = false
+#       private_network = google_compute_network.vpc.self_link
+#     }
+#     backup_configuration {
+#       enabled = true
+#       binary_log_enabled = true
+#     }
+#     availability_type = var.availability_type
     
   
-  }
-}
+#   }
+# }
 
-resource "google_sql_database" "database" {
-  name     = var.database_name
-  instance = google_sql_database_instance.db_instance.name
-}
+# resource "google_sql_database" "database" {
+#   name     = var.database_name
+#   instance = google_sql_database_instance.db_instance.name
+# }
 
-resource "google_sql_user" "db_user" {
-  name     = var.database_user
-  instance = google_sql_database_instance.db_instance.name
-  password = random_password.db_user_password.result
-}
+# resource "google_sql_user" "db_user" {
+#   name     = var.database_user
+#   instance = google_sql_database_instance.db_instance.name
+#   password = random_password.db_user_password.result
+# }
 
-resource "random_password" "db_user_password" {
-  length  = var.rm_len
-  special = var.rm_special
-}
+# resource "random_password" "db_user_password" {
+#   length  = var.rm_len
+#   special = var.rm_special
+# }
 
 resource "google_service_account" "service_account" {
   account_id   = var.service_id
@@ -147,54 +147,54 @@ resource "google_service_account" "service_account" {
   project = var.project_id
 }
 
-resource "google_compute_instance" "vm_instance_webapp" {
-  name         = var.vm_instance_name
-  machine_type = var.machine_type
-  zone         = var.zone
+# resource "google_compute_instance" "vm_instance_webapp" {
+#   name         = var.vm_instance_name
+#   machine_type = var.machine_type
+#   zone         = var.zone
 
-  service_account {
-    email = var.service_email
-   scopes =  var.vm_service_roles
-  }
-  boot_disk {
-    initialize_params {
-      image = "projects/${var.project_id}/global/images/${var.image_name}"
-      size  = var.image_size
-      type  = var.image_type
-    }
-  }
+#   service_account {
+#     email = var.service_email
+#    scopes =  var.vm_service_roles
+#   }
+#   boot_disk {
+#     initialize_params {
+#       image = "projects/${var.project_id}/global/images/${var.image_name}"
+#       size  = var.image_size
+#       type  = var.image_type
+#     }
+#   }
 
-  network_interface {
-    network    = google_compute_network.vpc.self_link
-    subnetwork = google_compute_subnetwork.webapp.self_link
-    access_config {
-    }
-  }
-  tags = ["${var.vpc}-${var.app_name}", "http-server"]
+#   network_interface {
+#     network    = google_compute_network.vpc.self_link
+#     subnetwork = google_compute_subnetwork.webapp.self_link
+#     access_config {
+#     }
+#   }
+#   tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
-  metadata = {
-  startup-script = <<-SCRIPT
-sudo bash <<EOF
-cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
-db_host=${google_sql_database_instance.db_instance.private_ip_address}
-db_username=${google_sql_user.db_user.name}
-db_password=${random_password.db_user_password.result}
-db_database=${google_sql_database.database.name}
-INNER_EOF
-EOF
-  SCRIPT
-}
+#   metadata = {
+#   startup-script = <<-SCRIPT
+#   sudo bash <<EOF
+#   cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
+#   db_host=${google_sql_database_instance.db_instance.private_ip_address}
+#   db_username=${google_sql_user.db_user.name}
+#   db_password=${random_password.db_user_password.result}
+#   db_database=${google_sql_database.database.name}
+#   INNER_EOF
+#   EOF
+#   SCRIPT
+# }
 
-  allow_stopping_for_update = true
-}
+#   allow_stopping_for_update = true
+# }
 
-resource "google_dns_record_set" "dns_record" {
-  name    = var.azone
-  type    = var.ztype
-  ttl     = var.ttl
-  managed_zone = var.zone_name
-  rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
-}
+# resource "google_dns_record_set" "dns_record" {
+#   name    = var.azone
+#   type    = var.ztype
+#   ttl     = var.ttl
+#   managed_zone = var.zone_name
+#   rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
+# }
 
 resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
@@ -241,37 +241,69 @@ resource "google_project_iam_binding" "token_creator" {
   project = var.project_id
   role = "roles/iam.serviceAccountTokenCreator"
   members = [
-    "serviceAccount:service-450277584514@gcp-sa-pubsub.iam.gserviceaccount.com",
+    "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
 
 resource "google_storage_bucket" "bucket" {
-  name     = "test-bucket"
+  name     = "serverlerr-bucket"
   location = "US"
 }
 
-resource "google_storage_bucket_object" "archive" {
-  name   = "index.zip"
+resource "google_storage_bucket_object" "functioncode" {
+  name   = "serverless.zip"
   bucket = google_storage_bucket.bucket.name
-  source = "./path/to/zip/file/which/contains/code"
+  source = "serverless.zip"
 }
 
-resource "google_cloudfunctions_function" "function" {
-  name        = "function-test"
-  description = "My function"
-  runtime     = "nodejs16"
+resource "google_cloudfunctions2_function" "default" {
+  name        = "cloud-webapp"
+  location    = "us-central1"
+  description = "a new function"
 
-  available_memory_mb   = 128
-  source_archive_bucket = google_storage_bucket.bucket.name
-  source_archive_object = google_storage_bucket_object.archive.name
-  trigger_http          = true
-  entry_point           = "helloGET"
-}
-resource "google_cloudfunctions_function_iam_member" "invoker" {
-  project        = google_cloudfunctions_function.function.project
-  region         = google_cloudfunctions_function.function.region
-  cloud_function = google_cloudfunctions_function.function.name
+  build_config {
+    runtime     = "nodejs16"
+    entry_point = "helloPubSub"
+    environment_variables = {
+      API_KEY = "${var.function_api_key}"
+      DOMAIN = "${var.function_domain}"
+    }
+    source {
+      storage_source {
+        bucket = google_storage_bucket.bucket.name
+        object = google_storage_bucket_object.functioncode.name
+      }
+    }
+  }
 
-  role   = "roles/cloudfunctions.invoker"
-  member = "allUsers"
+  service_config {
+    max_instance_count = 3
+    min_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 60
+    environment_variables = {
+      SERVICE_CONFIG_TEST = "config_test"
+      API_KEY = "${var.function_api_key}"
+      DOMAIN = "${var.function_domain}"
+    }
+    ingress_settings               = "ALLOW_INTERNAL_ONLY"
+    all_traffic_on_latest_revision = true
+    service_account_email          = google_service_account.service_account.email
+  }
+
+  event_trigger {
+    trigger_region = "us-central1"
+    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic   = google_pubsub_topic.verify_email.id
+    retry_policy   = "RETRY_POLICY_RETRY"
+  }
 }
+
+# resource "google_cloudfunctions_function_iam_member" "invoker" {
+#   project        = google_cloudfunctions2_function.default.project
+#   region         = "us-central1"
+#   cloud_function = google_cloudfunctions2_function.default.name
+
+#   role   = "roles/cloudfunctions.invoker"
+#   member = "serviceAccount:${google_service_account.service_account.email}"
+# }

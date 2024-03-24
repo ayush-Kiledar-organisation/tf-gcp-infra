@@ -251,3 +251,14 @@ variable "rm_special" {
   type = bool
   default = false
 }
+
+variable "function_api_key" {
+  type = string
+  default = "3369a6c668bd2f5cb16346c87b7ccdb7-309b0ef4-998219c5"
+}
+
+variable "function_domain" {
+  type = string
+  default = "ayush-kiledar-webapp.me"
+  
+}
