@@ -101,45 +101,45 @@ resource "google_compute_route" "webapp" {
   tags             = ["${var.vpc}-${var.app_name}"]
 }
 
-# resource "google_sql_database_instance" "db_instance" {
-#   name = var.db_instance_name
-#   database_version = var.db_instance_version
-#   region             = var.region
-#   deletion_protection = false
-#   depends_on = [google_service_networking_connection.default]
-#   settings {
-#     tier = var.db_instance_tier
-#     disk_type = var.disk_type
-#     disk_size = var.disk_size
-#     ip_configuration {
-#       ipv4_enabled = false
-#       private_network = google_compute_network.vpc.self_link
-#     }
-#     backup_configuration {
-#       enabled = true
-#       binary_log_enabled = true
-#     }
-#     availability_type = var.availability_type
+resource "google_sql_database_instance" "db_instance" {
+  name = var.db_instance_name
+  database_version = var.db_instance_version
+  region             = var.region
+  deletion_protection = false
+  depends_on = [google_service_networking_connection.default]
+  settings {
+    tier = var.db_instance_tier
+    disk_type = var.disk_type
+    disk_size = var.disk_size
+    ip_configuration {
+      ipv4_enabled = false
+      private_network = google_compute_network.vpc.self_link
+    }
+    backup_configuration {
+      enabled = true
+      binary_log_enabled = true
+    }
+    availability_type = var.availability_type
     
   
-#   }
-# }
+  }
+}
 
-# resource "google_sql_database" "database" {
-#   name     = var.database_name
-#   instance = google_sql_database_instance.db_instance.name
-# }
+resource "google_sql_database" "database" {
+  name     = var.database_name
+  instance = google_sql_database_instance.db_instance.name
+}
 
-# resource "google_sql_user" "db_user" {
-#   name     = var.database_user
-#   instance = google_sql_database_instance.db_instance.name
-#   password = random_password.db_user_password.result
-# }
+resource "google_sql_user" "db_user" {
+  name     = var.database_user
+  instance = google_sql_database_instance.db_instance.name
+  password = random_password.db_user_password.result
+}
 
-# resource "random_password" "db_user_password" {
-#   length  = var.rm_len
-#   special = var.rm_special
-# }
+resource "random_password" "db_user_password" {
+  length  = var.rm_len
+  special = var.rm_special
+}
 
 resource "google_service_account" "service_account" {
   account_id   = var.service_id
@@ -147,54 +147,70 @@ resource "google_service_account" "service_account" {
   project = var.project_id
 }
 
-# resource "google_compute_instance" "vm_instance_webapp" {
-#   name         = var.vm_instance_name
-#   machine_type = var.machine_type
-#   zone         = var.zone
+resource "google_compute_instance" "vm_instance_webapp" {
+  name         = var.vm_instance_name
+  machine_type = var.machine_type
+  zone         = var.zone
 
-#   service_account {
-#     email = var.service_email
-#    scopes =  var.vm_service_roles
-#   }
-#   boot_disk {
-#     initialize_params {
-#       image = "projects/${var.project_id}/global/images/${var.image_name}"
-#       size  = var.image_size
-#       type  = var.image_type
-#     }
-#   }
+  service_account {
+    email = var.service_email
+   scopes =  var.vm_service_roles
+  }
+  boot_disk {
+    initialize_params {
+      image = "projects/${var.project_id}/global/images/${var.image_name}"
+      size  = var.image_size
+      type  = var.image_type
+    }
+  }
 
-#   network_interface {
-#     network    = google_compute_network.vpc.self_link
-#     subnetwork = google_compute_subnetwork.webapp.self_link
-#     access_config {
-#     }
-#   }
-#   tags = ["${var.vpc}-${var.app_name}", "http-server"]
+  network_interface {
+    network    = google_compute_network.vpc.self_link
+    subnetwork = google_compute_subnetwork.webapp.self_link
+    access_config {
+    }
+  }
+  tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
-#   metadata = {
-#   startup-script = <<-SCRIPT
-#   sudo bash <<EOF
-#   cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
-#   db_host=${google_sql_database_instance.db_instance.private_ip_address}
-#   db_username=${google_sql_user.db_user.name}
-#   db_password=${random_password.db_user_password.result}
-#   db_database=${google_sql_database.database.name}
-#   INNER_EOF
-#   EOF
-#   SCRIPT
-# }
+  metadata = {
+    startup-script = <<-SCRIPT
+    sudo bash <<EOF
+    cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
+    db_host=${google_sql_database_instance.db_instance.private_ip_address}
+    db_username=${google_sql_user.db_user.name}
+    db_password=${random_password.db_user_password.result}
+    db_database=${google_sql_database.database.name}
+    INNER_EOF
+    EOF
+    SCRIPT
+  }
 
-#   allow_stopping_for_update = true
-# }
+  allow_stopping_for_update = true
+}
 
-# resource "google_dns_record_set" "dns_record" {
-#   name    = var.azone
-#   type    = var.ztype
-#   ttl     = var.ttl
-#   managed_zone = var.zone_name
-#   rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
-# }
+resource "google_project_iam_binding" "vm_roles" {
+  project = var.project_id
+  role = "roles/compute.instanceAdmin.v1"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+resource "google_project_iam_binding" "vm2_roles" {
+  project = var.project_id
+  role = "roles/pubsub.publisher"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+resource "google_dns_record_set" "dns_record" {
+  name    = var.azone
+  type    = var.ztype
+  ttl     = var.ttl
+  managed_zone = var.zone_name
+  rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
+}
 
 resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
@@ -299,11 +315,68 @@ resource "google_cloudfunctions2_function" "default" {
   }
 }
 
-# resource "google_cloudfunctions_function_iam_member" "invoker" {
-#   project        = google_cloudfunctions2_function.default.project
-#   region         = "us-central1"
+# resource "google_cloudfunctions2_function_iam_member" "invoker" {
+#   project        = var.project_id
 #   cloud_function = google_cloudfunctions2_function.default.name
 
 #   role   = "roles/cloudfunctions.invoker"
 #   member = "serviceAccount:${google_service_account.service_account.email}"
 # }
+
+data "google_iam_policy" "a7viewer" {
+  binding {
+    role = "roles/viewer"
+    members = [
+      "serviceAccount:${google_service_account.service_account.email}",
+    ]
+  }
+}
+
+data "google_iam_policy" "a7editor" {
+  binding {
+    role = "roles/viewer"
+    members = [
+      "serviceAccount:${google_service_account.service_account.email}",
+    ]
+  }
+}
+resource "google_pubsub_subscription_iam_policy" "policy_subscription" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  policy_data  = data.google_iam_policy.a7editor.policy_data
+}
+
+resource "google_pubsub_topic_iam_policy" "policy_topic" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  policy_data = data.google_iam_policy.a7viewer.policy_data
+}
+
+resource "google_pubsub_subscription_iam_binding" "editor" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  role         = "roles/editor"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+resource "google_pubsub_subscription_iam_member" "editor" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  role         = "roles/editor"
+  member       = "serviceAccount:${google_service_account.service_account.email}"
+}
+
+resource "google_pubsub_topic_iam_binding" "binding" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  role = "roles/viewer"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+resource "google_pubsub_topic_iam_member" "member" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  role = "roles/viewer"
+  member = "serviceAccount:${google_service_account.service_account.email}"
+}

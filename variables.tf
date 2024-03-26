@@ -202,7 +202,7 @@ variable "logging_role" {
 
 variable "vm_service_roles" {
   type    = list(string)
-  default = ["logging-write","monitoring-read","monitoring-write"]
+  default = ["logging-write","monitoring-read","monitoring-write","pubsub"]
   
 }
 
