@@ -293,7 +293,7 @@ resource "google_cloudfunctions2_function" "default" {
   description = "a new function"
 
   build_config {
-    runtime     = "nodejs16"
+    runtime     = "nodejs18"
     entry_point = "helloPubSub"
     environment_variables = {
       API_KEY = "${var.function_api_key}"
@@ -330,7 +330,7 @@ resource "google_cloudfunctions2_function" "default" {
   }
 
   event_trigger {
-    trigger_region = "us-central1"
+    trigger_region = var.region
     event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
     pubsub_topic   = google_pubsub_topic.verify_email.id
     retry_policy   = "RETRY_POLICY_RETRY"
