@@ -68,7 +68,7 @@ variable "machine_type" {
 variable "image_name" {
   type = string
   description = "The name of the custom image"
-  default = "myimage2"
+  default = "myimage3"
 }
 
 variable "image_size" {
@@ -202,7 +202,7 @@ variable "logging_role" {
 
 variable "vm_service_roles" {
   type    = list(string)
-  default = ["logging-write","monitoring-read","monitoring-write"]
+  default = ["logging-write","monitoring-read","monitoring-write","pubsub"]
   
 }
 
@@ -250,4 +250,15 @@ variable "rm_len" {
 variable "rm_special" {
   type = bool
   default = false
+}
+
+variable "function_api_key" {
+  type = string
+  default = "3369a6c668bd2f5cb16346c87b7ccdb7-309b0ef4-998219c5"
+}
+
+variable "function_domain" {
+  type = string
+  default = "ayush-kiledar-webapp.me"
+  
 }
