@@ -68,7 +68,7 @@ variable "machine_type" {
 variable "image_name" {
   type = string
   description = "The name of the custom image"
-  default = "myimage2"
+  default = "myimage3"
 }
 
 variable "image_size" {

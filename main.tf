@@ -272,6 +272,21 @@ resource "google_storage_bucket_object" "functioncode" {
   source = "serverless.zip"
 }
 
+resource "google_vpc_access_connector" "connector" {
+  name          = "webapp-vpc-connector"
+  subnet {
+    name = google_compute_subnetwork.connector_subnet.name
+  }
+  machine_type = "e2-standard-4"
+}
+
+resource "google_compute_subnetwork" "connector_subnet" {
+  name          = "webapp-vpc-connector"
+  ip_cidr_range = "10.2.0.0/28"
+  region        = "us-central1"
+  network       = google_compute_network.vpc.id
+}
+
 resource "google_cloudfunctions2_function" "default" {
   name        = "cloud-webapp"
   location    = "us-central1"
@@ -301,8 +316,15 @@ resource "google_cloudfunctions2_function" "default" {
       SERVICE_CONFIG_TEST = "config_test"
       API_KEY = "${var.function_api_key}"
       DOMAIN = "${var.function_domain}"
+      db_host="${google_sql_database_instance.db_instance.private_ip_address}"
+      db_username="${google_sql_user.db_user.name}"
+      db_password="${random_password.db_user_password.result}"
+      db_database="${google_sql_database.database.name}"
     }
-    ingress_settings               = "ALLOW_INTERNAL_ONLY"
+
+    vpc_connector = google_vpc_access_connector.connector.name
+    ingress_settings               = "ALLOW_ALL"
+    vpc_connector_egress_settings = "VPC_CONNECTOR_EGRESS_SETTINGS_UNSPECIFIED"
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.service_account.email
   }
@@ -315,13 +337,13 @@ resource "google_cloudfunctions2_function" "default" {
   }
 }
 
-# resource "google_cloudfunctions2_function_iam_member" "invoker" {
-#   project        = var.project_id
-#   cloud_function = google_cloudfunctions2_function.default.name
+resource "google_cloudfunctions2_function_iam_member" "invoker" {
+  project        = var.project_id
+  cloud_function = google_cloudfunctions2_function.default.name
 
-#   role   = "roles/cloudfunctions.invoker"
-#   member = "serviceAccount:${google_service_account.service_account.email}"
-# }
+  role   = "roles/cloudfunctions.invoker"
+  member = "serviceAccount:${google_service_account.service_account.email}"
+}
 
 data "google_iam_policy" "a7viewer" {
   binding {
@@ -377,6 +399,28 @@ resource "google_pubsub_topic_iam_binding" "binding" {
 resource "google_pubsub_topic_iam_member" "member" {
   project = google_pubsub_topic.verify_email.project
   topic = google_pubsub_topic.verify_email.name
+  role = "roles/viewer"
+  member = "serviceAccount:${google_service_account.service_account.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_policy" "policy" {
+  project = google_cloudfunctions2_function.default.project
+  cloud_function = google_cloudfunctions2_function.default.name
+  policy_data = data.google_iam_policy.a7viewer.policy_data
+}
+
+resource "google_cloudfunctions2_function_iam_binding" "binding2" {
+  project = google_cloudfunctions2_function.default.project
+  cloud_function = google_cloudfunctions2_function.default.name
+  role = "roles/viewer"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+resource "google_cloudfunctions2_function_iam_member" "member2" {
+  project = google_cloudfunctions2_function.default.project
+  cloud_function = google_cloudfunctions2_function.default.name
   role = "roles/viewer"
   member = "serviceAccount:${google_service_account.service_account.email}"
 }
