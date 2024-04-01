@@ -101,45 +101,45 @@ resource "google_compute_route" "webapp" {
   tags             = ["${var.vpc}-${var.app_name}"]
 }
 
-# resource "google_sql_database_instance" "db_instance" {
-#   name = var.db_instance_name
-#   database_version = var.db_instance_version
-#   region             = var.region
-#   deletion_protection = false
-#   depends_on = [google_service_networking_connection.default]
-#   settings {
-#     tier = var.db_instance_tier
-#     disk_type = var.disk_type
-#     disk_size = var.disk_size
-#     ip_configuration {
-#       ipv4_enabled = false
-#       private_network = google_compute_network.vpc.self_link
-#     }
-#     backup_configuration {
-#       enabled = true
-#       binary_log_enabled = true
-#     }
-#     availability_type = var.availability_type
+resource "google_sql_database_instance" "db_instance" {
+  name = var.db_instance_name
+  database_version = var.db_instance_version
+  region             = var.region
+  deletion_protection = false
+  depends_on = [google_service_networking_connection.default]
+  settings {
+    tier = var.db_instance_tier
+    disk_type = var.disk_type
+    disk_size = var.disk_size
+    ip_configuration {
+      ipv4_enabled = false
+      private_network = google_compute_network.vpc.self_link
+    }
+    backup_configuration {
+      enabled = true
+      binary_log_enabled = true
+    }
+    availability_type = var.availability_type
     
   
-#   }
-# }
+  }
+}
 
-# resource "google_sql_database" "database" {
-#   name     = var.database_name
-#   instance = google_sql_database_instance.db_instance.name
-# }
+resource "google_sql_database" "database" {
+  name     = var.database_name
+  instance = google_sql_database_instance.db_instance.name
+}
 
-# resource "google_sql_user" "db_user" {
-#   name     = var.database_user
-#   instance = google_sql_database_instance.db_instance.name
-#   password = random_password.db_user_password.result
-# }
+resource "google_sql_user" "db_user" {
+  name     = var.database_user
+  instance = google_sql_database_instance.db_instance.name
+  password = random_password.db_user_password.result
+}
 
-# resource "random_password" "db_user_password" {
-#   length  = var.rm_len
-#   special = var.rm_special
-# }
+resource "random_password" "db_user_password" {
+  length  = var.rm_len
+  special = var.rm_special
+}
 
 resource "google_service_account" "service_account" {
   account_id   = var.service_id
@@ -212,54 +212,54 @@ resource "google_project_iam_binding" "vm2_roles" {
 #   rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
 # }
 
-# resource "google_project_iam_binding" "logging_admin" {
-#   project = var.project_id
-#   role = var.logging_role
-#   members = [
-#     "serviceAccount:${google_service_account.service_account.email}",
-#   ]
-# }
-# resource "google_project_iam_binding" "monitoring_metric_writer" {
-#   project = var.project_id
-#   role = var.monitoring_role
-#   members = [
-#     "serviceAccount:${google_service_account.service_account.email}",
-#   ]
-# }
-# resource "google_pubsub_topic" "verify_email" {
-#   name = "verify_email"
-#   labels = {
-#     foo = "bar"
-#   }
-#   message_retention_duration = "604800s"
-# }
+resource "google_project_iam_binding" "logging_admin" {
+  project = var.project_id
+  role = var.logging_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+resource "google_project_iam_binding" "monitoring_metric_writer" {
+  project = var.project_id
+  role = var.monitoring_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+resource "google_pubsub_topic" "verify_email" {
+  name = "verify_email"
+  labels = {
+    foo = "bar"
+  }
+  message_retention_duration = "604800s"
+}
 
-# resource "google_pubsub_subscription" "cloud_sub" {
-#   name  = "cloud-sub"
-#   topic = google_pubsub_topic.verify_email.id
-#   labels = {
-#     foo = "bar"
-#   }
-#   retain_acked_messages      = true
+resource "google_pubsub_subscription" "cloud_sub" {
+  name  = "cloud-sub"
+  topic = google_pubsub_topic.verify_email.id
+  labels = {
+    foo = "bar"
+  }
+  retain_acked_messages      = true
 
-#   ack_deadline_seconds = 20
+  ack_deadline_seconds = 20
 
-#   expiration_policy {
-#     ttl = "604800s"
-#   }
-#   retry_policy {
-#     minimum_backoff = "10s"
-#   }
-#   enable_message_ordering    = false
-# }
+  expiration_policy {
+    ttl = "604800s"
+  }
+  retry_policy {
+    minimum_backoff = "10s"
+  }
+  enable_message_ordering    = false
+}
 
-# resource "google_project_iam_binding" "token_creator" {
-#   project = var.project_id
-#   role = "roles/iam.serviceAccountTokenCreator"
-#   members = [
-#     "serviceAccount:${google_service_account.service_account.email}",
-#   ]
-# }
+resource "google_project_iam_binding" "token_creator" {
+  project = var.project_id
+  role = "roles/iam.serviceAccountTokenCreator"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
 
 # resource "google_storage_bucket" "bucket" {
 #   name     = "serverlerr-bucket"
@@ -272,20 +272,20 @@ resource "google_project_iam_binding" "vm2_roles" {
 #   source = "serverless.zip"
 # }
 
-# resource "google_vpc_access_connector" "connector" {
-#   name          = "webapp-vpc-connector"
-#   subnet {
-#     name = google_compute_subnetwork.connector_subnet.name
-#   }
-#   machine_type = "e2-standard-4"
-# }
+resource "google_vpc_access_connector" "connector" {
+  name          = "webapp-vpc-connector"
+  subnet {
+    name = google_compute_subnetwork.connector_subnet.name
+  }
+  machine_type = "e2-standard-4"
+}
 
-# resource "google_compute_subnetwork" "connector_subnet" {
-#   name          = "webapp-vpc-connector"
-#   ip_cidr_range = "10.2.0.0/28"
-#   region        = "us-central1"
-#   network       = google_compute_network.vpc.id
-# }
+resource "google_compute_subnetwork" "connector_subnet" {
+  name          = "webapp-vpc-connector"
+  ip_cidr_range = "10.2.0.0/28"
+  region        = "us-central1"
+  network       = google_compute_network.vpc.id
+}
 
 # resource "google_cloudfunctions2_function" "default" {
 #   name        = "cloud-webapp"
@@ -345,27 +345,27 @@ resource "google_project_iam_binding" "vm2_roles" {
 #   member = "serviceAccount:${google_service_account.service_account.email}"
 # }
 
-# data "google_iam_policy" "a7viewer" {
-#   binding {
-#     role = "roles/viewer"
-#     members = [
-#       "serviceAccount:${google_service_account.service_account.email}",
-#     ]
-#   }
-# }
+data "google_iam_policy" "a7viewer" {
+  binding {
+    role = "roles/viewer"
+    members = [
+      "serviceAccount:${google_service_account.service_account.email}",
+    ]
+  }
+}
 
-# data "google_iam_policy" "a7editor" {
-#   binding {
-#     role = "roles/viewer"
-#     members = [
-#       "serviceAccount:${google_service_account.service_account.email}",
-#     ]
-#   }
-# }
-# resource "google_pubsub_subscription_iam_policy" "policy_subscription" {
-#   subscription = google_pubsub_subscription.cloud_sub.name
-#   policy_data  = data.google_iam_policy.a7editor.policy_data
-# }
+data "google_iam_policy" "a7editor" {
+  binding {
+    role = "roles/viewer"
+    members = [
+      "serviceAccount:${google_service_account.service_account.email}",
+    ]
+  }
+}
+resource "google_pubsub_subscription_iam_policy" "policy_subscription" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  policy_data  = data.google_iam_policy.a7editor.policy_data
+}
 
 # resource "google_pubsub_topic_iam_policy" "policy_topic" {
 #   project = google_pubsub_topic.verify_email.project
@@ -373,35 +373,35 @@ resource "google_project_iam_binding" "vm2_roles" {
 #   policy_data = data.google_iam_policy.a7viewer.policy_data
 # }
 
-# resource "google_pubsub_subscription_iam_binding" "editor" {
-#   subscription = google_pubsub_subscription.cloud_sub.name
-#   role         = "roles/editor"
-#   members = [
-#     "serviceAccount:${google_service_account.service_account.email}",
-#   ]
-# }
+resource "google_pubsub_subscription_iam_binding" "editor" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  role         = "roles/editor"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
 
-# resource "google_pubsub_subscription_iam_member" "editor" {
-#   subscription = google_pubsub_subscription.cloud_sub.name
-#   role         = "roles/editor"
-#   member       = "serviceAccount:${google_service_account.service_account.email}"
-# }
+resource "google_pubsub_subscription_iam_member" "editor" {
+  subscription = google_pubsub_subscription.cloud_sub.name
+  role         = "roles/editor"
+  member       = "serviceAccount:${google_service_account.service_account.email}"
+}
 
-# resource "google_pubsub_topic_iam_binding" "binding" {
-#   project = google_pubsub_topic.verify_email.project
-#   topic = google_pubsub_topic.verify_email.name
-#   role = "roles/viewer"
-#   members = [
-#     "serviceAccount:${google_service_account.service_account.email}",
-#   ]
-# }
+resource "google_pubsub_topic_iam_binding" "binding" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  role = "roles/viewer"
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
 
-# resource "google_pubsub_topic_iam_member" "member" {
-#   project = google_pubsub_topic.verify_email.project
-#   topic = google_pubsub_topic.verify_email.name
-#   role = "roles/viewer"
-#   member = "serviceAccount:${google_service_account.service_account.email}"
-# }
+resource "google_pubsub_topic_iam_member" "member" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  role = "roles/viewer"
+  member = "serviceAccount:${google_service_account.service_account.email}"
+}
 
 # resource "google_cloudfunctions2_function_iam_policy" "policy" {
 #   project = google_cloudfunctions2_function.default.project
@@ -504,17 +504,18 @@ resource "google_compute_resource_policy" "daily_backup" {
   }
 }
 
-resource "google_compute_health_check" "webappcheck" {
-  name                = "webapp-health-check"
-  check_interval_sec  = 5
-  timeout_sec         = 5
-  healthy_threshold   = 2
-  unhealthy_threshold = 10
-
+resource "google_compute_region_health_check" "webappcheck" {
+  name               = "webapp-check"
+  check_interval_sec = 5
+  healthy_threshold  = 2
   http_health_check {
-    request_path = "/healthz"
-    port         = "3000"
+    port               = "3000"
+    proxy_header       = "NONE"
+    request_path       = "/healthz"
   }
+  region              = "us-central1"
+  timeout_sec         = 5
+  unhealthy_threshold = 2
 }
 
 resource "google_compute_region_instance_group_manager" "webappserver" {
@@ -537,7 +538,10 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
         startup-script = <<-SCRIPT
         sudo bash <<EOF
         cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
-        file=uploaded
+        db_host=${google_sql_database_instance.db_instance.private_ip_address}
+        db_username=${google_sql_user.db_user.name}
+        db_password=${random_password.db_user_password.result}
+        db_database=${google_sql_database.database.name}
         INNER_EOF
         EOF
         SCRIPT
@@ -547,8 +551,8 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
     }
   }
 
-  target_pools = [google_compute_target_pool.tpool.id]
-  target_size  = 2
+  # target_pools = [google_compute_target_pool.tpool.id]
+  # target_size  = 2
 
   
   named_port {
@@ -556,10 +560,10 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
     port = 3000
   }
 
-  auto_healing_policies {
-    health_check      = google_compute_health_check.webappcheck.id
-    initial_delay_sec = 300
-  }
+  # auto_healing_policies {
+  #   health_check      = google_compute_health_check.webappcheck.id
+  #   initial_delay_sec = 300
+  # }
 
 }
 
@@ -581,9 +585,9 @@ resource "google_compute_region_autoscaler" "webappAutoScaler" {
   }
 }
 
-resource "google_compute_target_pool" "tpool" {
-  name = "tpool"
-}
+# resource "google_compute_target_pool" "tpool" {
+#   name = "tpool"
+# }
 
 resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   provider = google-beta
@@ -593,4 +597,62 @@ resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   managed {
     domains = ["ayush-kiledar-webapp.me"]
   }
+}
+
+resource "google_compute_region_backend_service" "webapp-lb" {
+  name                  = "webapp-lb"
+  region                = "us-central1"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  health_checks         = [google_compute_region_health_check.webappcheck.id]
+  protocol              = "HTTPS"
+  session_affinity      = "NONE"
+  timeout_sec           = 30
+  backend {
+    group           = google_compute_region_instance_group_manager.webappserver.instance_group
+    balancing_mode  = "UTILIZATION"
+    capacity_scaler = 1.0
+  }
+}
+
+resource "google_compute_region_url_map" "webapp-map" {
+  name            = "webapp-map"
+  region          = "us-central1"
+  default_service = google_compute_region_backend_service.webapp-lb.id
+}
+
+resource "google_compute_region_target_http_proxy" "webapp-target-proxy" {
+  name    = "webapp-proxy"
+  region  = "us-central1"
+  url_map = google_compute_region_url_map.webapp-map.id
+}
+
+resource "google_compute_address" "webapp-lb-address" {
+  name         = "webapp-lb-name"
+  address_type = "EXTERNAL"
+  network_tier = "STANDARD"
+  region       = "us-central1"
+}
+
+resource "google_compute_subnetwork" "proxy_only" {
+  name          = "proxy-only-subnet"
+  ip_cidr_range = "10.129.0.0/23"
+  network       = google_compute_network.vpc.id
+  purpose       = "REGIONAL_MANAGED_PROXY"
+  region        = "us-central1"
+  role          = "ACTIVE"
+}
+resource "google_compute_forwarding_rule" "webapp-forwarding-rule" {
+  name       = "webapp-forwarding-rule"
+  project = var.project_id
+  provider   = google-beta
+  depends_on = [google_compute_subnetwork.proxy_only]
+  region     = "us-central1"
+
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "443"
+  target                = google_compute_region_target_http_proxy.webapp-target-proxy.id
+  network               = google_compute_network.vpc.id
+  ip_address            = google_compute_address.webapp-lb-address.id
+  network_tier          = "STANDARD"
 }
