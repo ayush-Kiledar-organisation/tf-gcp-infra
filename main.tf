@@ -429,7 +429,7 @@ resource "google_compute_region_instance_template" "webapp_template" {
   name        = "webapp-template"
   description = "Webapp instance template."
 
-  tags = ["foo", "bar"]
+  tags = ["${var.vpc}-${var.app_name}", "http-server"]
 
   labels = {
     environment = "dev"
@@ -456,7 +456,16 @@ resource "google_compute_region_instance_template" "webapp_template" {
   }
 
   metadata = {
-    foo = "bar"
+    startup-script = <<-SCRIPT
+      sudo bash <<EOF
+      cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
+      db_host=${google_sql_database_instance.db_instance.private_ip_address}
+      db_username=${google_sql_user.db_user.name}
+      db_password=${random_password.db_user_password.result}
+      db_database=${google_sql_database.database.name}
+      INNER_EOF
+      EOF
+      SCRIPT
   }
 
   service_account {
@@ -504,18 +513,18 @@ resource "google_compute_resource_policy" "daily_backup" {
   }
 }
 
-resource "google_compute_region_health_check" "webappcheck" {
-  name               = "webapp-check"
-  check_interval_sec = 5
-  healthy_threshold  = 2
-  http_health_check {
-    port               = "3000"
-    proxy_header       = "NONE"
-    request_path       = "/healthz"
+resource "google_compute_health_check" "webappcheck" {
+  name        = "tcp-health-check"
+  description = "Health check via tcp"
+
+  timeout_sec         = 10
+  check_interval_sec  = 10
+  healthy_threshold   = 1
+  unhealthy_threshold = 5
+
+  tcp_health_check {
+    port = "3000"
   }
-  region              = "us-central1"
-  timeout_sec         = 5
-  unhealthy_threshold = 2
 }
 
 resource "google_compute_region_instance_group_manager" "webappserver" {
@@ -533,38 +542,18 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
     instance_template = google_compute_region_instance_template.webapp_template.self_link
   }
 
-  all_instances_config {
-      metadata = {
-        startup-script = <<-SCRIPT
-        sudo bash <<EOF
-        cat <<INNER_EOF | sudo tee /opt/csye6225/webapp/.env > /dev/null
-        db_host=${google_sql_database_instance.db_instance.private_ip_address}
-        db_username=${google_sql_user.db_user.name}
-        db_password=${random_password.db_user_password.result}
-        db_database=${google_sql_database.database.name}
-        INNER_EOF
-        EOF
-        SCRIPT
-    }
-    labels = {
-      key1 = "value1"
-    }
-  }
-
-  # target_pools = [google_compute_target_pool.tpool.id]
+  # target_pools = []
   # target_size  = 2
 
-  
   named_port {
-    name = "appport"
+    name = "app"
     port = 3000
   }
 
-  # auto_healing_policies {
-  #   health_check      = google_compute_health_check.webappcheck.id
-  #   initial_delay_sec = 300
-  # }
-
+  auto_healing_policies {
+    health_check      = google_compute_health_check.webappcheck.id
+    initial_delay_sec = 300
+  }
 }
 
 
@@ -574,20 +563,15 @@ resource "google_compute_region_autoscaler" "webappAutoScaler" {
   target = google_compute_region_instance_group_manager.webappserver.id
 
   autoscaling_policy {
-    max_replicas    = 5
+    max_replicas    = 2
     min_replicas    = 1
     cooldown_period = 60
-    mode = "OFF"
 
     cpu_utilization {
       target = 0.05
     }
   }
 }
-
-# resource "google_compute_target_pool" "tpool" {
-#   name = "tpool"
-# }
 
 resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   provider = google-beta
@@ -599,60 +583,60 @@ resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   }
 }
 
-resource "google_compute_region_backend_service" "webapp-lb" {
-  name                  = "webapp-lb"
-  region                = "us-central1"
-  load_balancing_scheme = "EXTERNAL_MANAGED"
-  health_checks         = [google_compute_region_health_check.webappcheck.id]
-  protocol              = "HTTPS"
-  session_affinity      = "NONE"
-  timeout_sec           = 30
+resource "google_compute_subnetwork" "lb-subnet" {
+  name          = "lb-subnet"
+  project = var.project_id
+  provider      = google-beta
+  ip_cidr_range = "10.129.0.0/23"
+  region        = "us-central1"
+  network       = google_compute_network.vpc.id
+}
+
+resource "google_compute_global_address" "lb-address" {
+  provider = google-beta
+  project = var.project_id
+  name     = "lb-static-ip"
+}
+
+resource "google_compute_global_forwarding_rule" "lb-forwarding-rule" {
+  name                  = "lb-forwarding-rule"
+  project = var.project_id
+  provider              = google-beta
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL"
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.webapp-proxy.id
+  ip_address            = google_compute_global_address.lb-address.id
+  
+}
+
+resource "google_compute_target_https_proxy" "webapp-proxy" {
+  name     = "webapp-target-http-proxy"
+  project = var.project_id
+  provider = google-beta
+  url_map  = google_compute_url_map.urlmap.id
+  ssl_certificates = [google_compute_managed_ssl_certificate.webapp-ssl.id]
+  depends_on = [google_compute_managed_ssl_certificate.webapp-ssl]
+}
+resource "google_compute_url_map" "urlmap" {
+  name            = "url-map"
+  project = var.project_id
+  provider        = google-beta
+  default_service = google_compute_backend_service.default.id
+}
+
+resource "google_compute_backend_service" "default" {
+  name                    = "lb-backend-service"
+  project                 = var.project_id
+  provider                = google-beta
+  protocol                = "HTTPS"
+  load_balancing_scheme   = "EXTERNAL"
+  timeout_sec             = 10
+  port_name               = "app"
+  health_checks           = [google_compute_health_check.webappcheck.id]
   backend {
     group           = google_compute_region_instance_group_manager.webappserver.instance_group
     balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
-}
-
-resource "google_compute_region_url_map" "webapp-map" {
-  name            = "webapp-map"
-  region          = "us-central1"
-  default_service = google_compute_region_backend_service.webapp-lb.id
-}
-
-resource "google_compute_region_target_http_proxy" "webapp-target-proxy" {
-  name    = "webapp-proxy"
-  region  = "us-central1"
-  url_map = google_compute_region_url_map.webapp-map.id
-}
-
-resource "google_compute_address" "webapp-lb-address" {
-  name         = "webapp-lb-name"
-  address_type = "EXTERNAL"
-  network_tier = "STANDARD"
-  region       = "us-central1"
-}
-
-resource "google_compute_subnetwork" "proxy_only" {
-  name          = "proxy-only-subnet"
-  ip_cidr_range = "10.129.0.0/23"
-  network       = google_compute_network.vpc.id
-  purpose       = "REGIONAL_MANAGED_PROXY"
-  region        = "us-central1"
-  role          = "ACTIVE"
-}
-resource "google_compute_forwarding_rule" "webapp-forwarding-rule" {
-  name       = "webapp-forwarding-rule"
-  project = var.project_id
-  provider   = google-beta
-  depends_on = [google_compute_subnetwork.proxy_only]
-  region     = "us-central1"
-
-  ip_protocol           = "TCP"
-  load_balancing_scheme = "EXTERNAL_MANAGED"
-  port_range            = "443"
-  target                = google_compute_region_target_http_proxy.webapp-target-proxy.id
-  network               = google_compute_network.vpc.id
-  ip_address            = google_compute_address.webapp-lb-address.id
-  network_tier          = "STANDARD"
 }
