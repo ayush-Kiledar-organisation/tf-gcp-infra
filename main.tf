@@ -10,12 +10,12 @@ resource "google_compute_firewall" "allow_request" {
 
   allow {
     protocol = var.tcp
-    ports    = var.firewall_allow
+    ports = var.firewall_allow
   }
 
-  source_ranges = ["${google_compute_global_address.lb-address.address}"]
+  source_ranges = ["130.211.0.0/22","35.191.0.0/16"]
 
-  target_tags = ["${var.vpc}-${var.app_name}","lb-health-check"]
+  target_tags = ["${var.vpc}-${var.app_name}","lb-health-check","allow-health-check","load-balancer-backend"]
 }
 
 resource "google_compute_firewall" "deny_tcp" {
@@ -353,11 +353,11 @@ resource "google_pubsub_subscription_iam_policy" "policy_subscription" {
   policy_data  = data.google_iam_policy.a7editor.policy_data
 }
 
-# resource "google_pubsub_topic_iam_policy" "policy_topic" {
-#   project = google_pubsub_topic.verify_email.project
-#   topic = google_pubsub_topic.verify_email.name
-#   policy_data = data.google_iam_policy.a7viewer.policy_data
-# }
+resource "google_pubsub_topic_iam_policy" "policy_topic" {
+  project = google_pubsub_topic.verify_email.project
+  topic = google_pubsub_topic.verify_email.name
+  policy_data = data.google_iam_policy.a7viewer.policy_data
+}
 
 resource "google_pubsub_subscription_iam_binding" "editor" {
   subscription = google_pubsub_subscription.cloud_sub.name
@@ -415,7 +415,7 @@ resource "google_compute_region_instance_template" "webapp_template" {
   name        = "webapp-template"
   description = "Webapp instance template."
 
-  tags = ["${var.vpc}-${var.app_name}","lb-health-check"]
+  tags = ["${var.vpc}-${var.app_name}","lb-health-check","allow-health-check", "load-balancer-backend","http-server","https-server"]
 
   instance_description = "description assigned to instances"
   machine_type         = "e2-medium"
@@ -519,7 +519,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
   
   base_instance_name         = "app"
   region                     = "us-central1"
-  distribution_policy_zones  = ["us-central1-a", "us-central1-f"]
+  distribution_policy_zones  = var.distribution_policy_zones
   
 
   version {
@@ -548,12 +548,12 @@ resource "google_compute_region_autoscaler" "webappAutoScaler" {
   target = google_compute_region_instance_group_manager.webappserver.id
 
   autoscaling_policy {
-    max_replicas    = 2
-    min_replicas    = 1
+    max_replicas    = var.vm_max_replicas
+    min_replicas    = var.vm_min_replicas
     cooldown_period = 60
 
     cpu_utilization {
-      target = 0.05
+      target = var.cpu_utilization
     }
   }
 }
@@ -572,20 +572,22 @@ resource "google_compute_subnetwork" "lb-subnet" {
   name          = "lb-subnet"
   project = var.project_id
   provider      = google-beta
-  ip_cidr_range = "10.129.0.0/23"
+  ip_cidr_range = var.cidr3
   region        = "us-central1"
   network       = google_compute_network.vpc.id
+  private_ip_google_access = true
+  
 }
 
 resource "google_compute_global_address" "lb-address" {
   provider = google-beta
   project = var.project_id
-  name     = "lb-static-ip"
+  name     = var.lb_static_ip
 }
 
 resource "google_compute_global_forwarding_rule" "lb-forwarding-rule" {
-  name                  = "lb-forwarding-rule"
-  project = var.project_id
+  name                  = var.lb_forwarding_rule
+  project               = var.project_id
   provider              = google-beta
   ip_protocol           = "TCP"
   load_balancing_scheme = "EXTERNAL"
@@ -596,7 +598,7 @@ resource "google_compute_global_forwarding_rule" "lb-forwarding-rule" {
 }
 
 resource "google_compute_target_https_proxy" "webapp-proxy" {
-  name     = "webapp-target-http-proxy"
+  name     = var.target_https_proxy
   project = var.project_id
   provider = google-beta
   url_map  = google_compute_url_map.urlmap.id
@@ -604,34 +606,34 @@ resource "google_compute_target_https_proxy" "webapp-proxy" {
   depends_on = [google_compute_managed_ssl_certificate.webapp-ssl]
 }
 resource "google_compute_url_map" "urlmap" {
-  name            = "url-map"
+  name            = var.google-url-name
   project = var.project_id
   provider        = google-beta
   default_service = google_compute_backend_service.default.id
 
-  host_rule {
-    hosts        = ["ayush-kiledar-webapp.me"]
-    path_matcher = "webappmatcher"
-  }
+  # host_rule {
+  #   hosts        = ["ayush-kiledar-webapp.me"]
+  #   path_matcher = "webappmatcher"
+  # }
 
-  path_matcher {
-    name = "webappmatcher"
-    default_service = google_compute_backend_service.default.id
-  }
+  # path_matcher {
+  #   name = "webappmatcher"
+  #   default_service = google_compute_backend_service.default.id
+  # }
 }
 
 resource "google_compute_backend_service" "default" {
-  name                    = "lb-backend-service"
+  name                    = var.google-backend-name
   project                 = var.project_id
   provider                = google-beta
   protocol                = "HTTP"
-  load_balancing_scheme   = "EXTERNAL"
+  load_balancing_scheme   = var.load_balancing_scheme
   timeout_sec             = 10
-  port_name               = "app"
+  port_name               = var.port_name
   health_checks           = [google_compute_health_check.webappcheck.id]
   backend {
     group           = google_compute_region_instance_group_manager.webappserver.instance_group
-    balancing_mode  = "UTILIZATION"
+    balancing_mode  = var.balancing_mode
     capacity_scaler = 1.0
   }
 }
@@ -643,4 +645,3 @@ resource "google_dns_record_set" "dns_record" {
   managed_zone = var.zone_name
   rrdatas = [google_compute_global_address.lb-address.address]
 }
-

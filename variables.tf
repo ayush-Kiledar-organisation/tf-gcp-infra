@@ -131,7 +131,12 @@ variable "firname" {
   type = string
   default = "allow-request"
   description = "name of firewall"
-  
+}
+
+variable "firname2" {
+  type = string
+  default = "allow-request-lb"
+  description = "name of firewall"
 }
 
 variable "deny_tcp" {
@@ -260,5 +265,84 @@ variable "function_api_key" {
 variable "function_domain" {
   type = string
   default = "ayush-kiledar-webapp.me"
+  
+}
+
+variable "balancing_mode" {
+  type = string
+  default = "UTILIZATION"
+  
+}
+
+variable "port_name" {
+  type = string
+  default = "app"
+  
+}
+
+variable "load_balancing_scheme" {
+  type = string
+  default = "EXTERNAL"
+  
+}
+
+variable "google-backend-name" {
+  type = string
+  default = "lb-backend-service"
+  
+}
+
+variable "google-url-name" {
+  type = string
+  default = "url-map"
+  
+}
+
+variable "target_https_proxy" {
+  type = string
+  default = "webapp-target-http-proxy"
+  
+}
+
+variable "lb_forwarding_rule" {
+  type = string
+  default = "lb-forwarding-rule"
+  
+}
+
+variable "lb_static_ip" {
+  type = string
+  default = "lb-static-ip"
+  
+}
+
+variable "cidr3" {
+
+  type = string
+  default = "10.129.0.0/23"
+  
+}
+
+variable "cpu_utilization" {
+  type = number
+  default = 0.05
+  
+}
+
+variable "vm_max_replicas" {
+  type = number
+  default = 2
+  
+}
+
+variable "distribution_policy_zones" {
+  type = list(string)
+  default = ["us-central1-a", "us-central1-f"]
+  
+}
+
+variable "vm_min_replicas" {
+  type = number
+  default = 1
   
 }
