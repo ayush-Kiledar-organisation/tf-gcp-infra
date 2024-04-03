@@ -13,9 +13,9 @@ resource "google_compute_firewall" "allow_request" {
     ports    = var.firewall_allow
   }
 
-  source_ranges = [var.dest_range]
+  source_ranges = ["${google_compute_global_address.lb-address.address}"]
 
-  target_tags = ["${var.vpc}-${var.app_name}"]
+  target_tags = ["${var.vpc}-${var.app_name}","lb-health-check"]
 }
 
 resource "google_compute_firewall" "deny_tcp" {
@@ -270,6 +270,7 @@ resource "google_compute_subnetwork" "connector_subnet" {
   ip_cidr_range = "10.2.0.0/28"
   region        = "us-central1"
   network       = google_compute_network.vpc.id
+  private_ip_google_access = true
 }
 
 # resource "google_cloudfunctions2_function" "default" {
@@ -437,8 +438,6 @@ resource "google_compute_region_instance_template" "webapp_template" {
   network_interface {
     network    = google_compute_network.vpc.self_link
     subnetwork = google_compute_subnetwork.webapp.self_link
-    access_config {
-    }
   }
 
   metadata = {
@@ -459,7 +458,6 @@ resource "google_compute_region_instance_template" "webapp_template" {
     email  = var.service_email
     scopes = var.vm_service_roles
   }
-
   
 }
 
@@ -541,6 +539,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
     health_check      = google_compute_health_check.webappcheck.id
     initial_delay_sec = 300
   }
+
 }
 
 
@@ -626,7 +625,7 @@ resource "google_compute_backend_service" "default" {
   name                    = "lb-backend-service"
   project                 = var.project_id
   provider                = google-beta
-  protocol                = "HTTPS"
+  protocol                = "HTTP"
   load_balancing_scheme   = "EXTERNAL"
   timeout_sec             = 10
   port_name               = "app"
@@ -646,44 +645,3 @@ resource "google_dns_record_set" "dns_record" {
   rrdatas = [google_compute_global_address.lb-address.address]
 }
 
-# module "gce-lb-http" {
-#   source  = "terraform-google-modules/lb-http/google"
-#   version = "~> 10.0"
-#   name    = "gce-lb-http"
-#   project = var.project_id
-#   target_tags = [
-#     "${var.vpc}-${var.app_name}", "http-server",
-#     google_compute_route.webapp.name,
-#   ]
-#   firewall_networks = [google_compute_network.vpc.name]
-
-#   backends = {
-#     default = {
-
-#       protocol    = "HTTPS"
-#       port        = 443
-#       port_name   = "app"
-#       timeout_sec = 10
-#       enable_cdn  = false
-
-#       health_check = {
-#         request_path = "/healthz"
-#         port         = 3000
-#       }
-
-#        log_config = {
-#         enable      = false
-#       }
-
-#       groups = [
-#         {
-#           group = google_compute_region_instance_group_manager.webappserver.instance_group
-#         }
-#       ]
-
-#       iap_config = {
-#         enable = false
-#       }
-#     }
-#   }
-# }
