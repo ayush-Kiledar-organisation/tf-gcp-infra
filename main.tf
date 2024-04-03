@@ -15,7 +15,7 @@ resource "google_compute_firewall" "allow_request" {
 
   source_ranges = [var.dest_range]
 
-  target_tags = ["${var.vpc}-${var.app_name}", "http-server"]
+  target_tags = ["${var.vpc}-${var.app_name}"]
 }
 
 resource "google_compute_firewall" "deny_tcp" {
@@ -82,15 +82,6 @@ resource "google_service_networking_connection" "default" {
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
   deletion_policy = "ABANDON"
 }
-# resource "google_compute_global_forwarding_rule" "default" {
-#   provider              = google-beta
-#   project               = google_compute_network.vpc.project
-#   name                  = "globalrule"
-#   target                = "all-apis"
-#   network               = google_compute_network.vpc.id
-#   ip_address            = google_compute_global_address.default.id
-#   load_balancing_scheme = ""
-# }
 
 resource "google_compute_route" "webapp" {
   name             = "${var.vpc}-route"
@@ -204,13 +195,7 @@ resource "google_project_iam_binding" "vm2_roles" {
   ]
 }
 
-# resource "google_dns_record_set" "dns_record" {
-#   name    = var.azone
-#   type    = var.ztype
-#   ttl     = var.ttl
-#   managed_zone = var.zone_name
-#   rrdatas = [google_compute_instance.vm_instance_webapp.network_interface[0].access_config[0].nat_ip]
-# }
+
 
 resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
@@ -429,11 +414,7 @@ resource "google_compute_region_instance_template" "webapp_template" {
   name        = "webapp-template"
   description = "Webapp instance template."
 
-  tags = ["${var.vpc}-${var.app_name}", "http-server"]
-
-  labels = {
-    environment = "dev"
-  }
+  tags = ["${var.vpc}-${var.app_name}","lb-health-check"]
 
   instance_description = "description assigned to instances"
   machine_type         = "e2-medium"
@@ -444,6 +425,8 @@ resource "google_compute_region_instance_template" "webapp_template" {
     on_host_maintenance = "MIGRATE"
   }
 
+  
+
   disk {
     source_image      = "projects/${var.project_id}/global/images/${var.image_name}"
     auto_delete       = true
@@ -452,7 +435,10 @@ resource "google_compute_region_instance_template" "webapp_template" {
   }
 
   network_interface {
-    network = "default"
+    network    = google_compute_network.vpc.self_link
+    subnetwork = google_compute_subnetwork.webapp.self_link
+    access_config {
+    }
   }
 
   metadata = {
@@ -470,9 +456,11 @@ resource "google_compute_region_instance_template" "webapp_template" {
 
   service_account {
     # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-    email  = google_service_account.service_account.email
+    email  = var.service_email
     scopes = var.vm_service_roles
   }
+
+  
 }
 
 resource "google_compute_region_disk" "temp_disk" {
@@ -516,13 +504,12 @@ resource "google_compute_resource_policy" "daily_backup" {
 resource "google_compute_health_check" "webappcheck" {
   name        = "tcp-health-check"
   description = "Health check via tcp"
+  project = var.project_id
+  provider = google-beta
+  
 
-  timeout_sec         = 10
-  check_interval_sec  = 10
-  healthy_threshold   = 1
-  unhealthy_threshold = 5
-
-  tcp_health_check {
+  http_health_check {
+    request_path = "/healthz"
     port = "3000"
   }
 }
@@ -623,6 +610,16 @@ resource "google_compute_url_map" "urlmap" {
   project = var.project_id
   provider        = google-beta
   default_service = google_compute_backend_service.default.id
+
+  host_rule {
+    hosts        = ["ayush-kiledar-webapp.me"]
+    path_matcher = "webappmatcher"
+  }
+
+  path_matcher {
+    name = "webappmatcher"
+    default_service = google_compute_backend_service.default.id
+  }
 }
 
 resource "google_compute_backend_service" "default" {
@@ -640,3 +637,53 @@ resource "google_compute_backend_service" "default" {
     capacity_scaler = 1.0
   }
 }
+
+resource "google_dns_record_set" "dns_record" {
+  name    = var.azone
+  type    = var.ztype
+  ttl     = var.ttl
+  managed_zone = var.zone_name
+  rrdatas = [google_compute_global_address.lb-address.address]
+}
+
+# module "gce-lb-http" {
+#   source  = "terraform-google-modules/lb-http/google"
+#   version = "~> 10.0"
+#   name    = "gce-lb-http"
+#   project = var.project_id
+#   target_tags = [
+#     "${var.vpc}-${var.app_name}", "http-server",
+#     google_compute_route.webapp.name,
+#   ]
+#   firewall_networks = [google_compute_network.vpc.name]
+
+#   backends = {
+#     default = {
+
+#       protocol    = "HTTPS"
+#       port        = 443
+#       port_name   = "app"
+#       timeout_sec = 10
+#       enable_cdn  = false
+
+#       health_check = {
+#         request_path = "/healthz"
+#         port         = 3000
+#       }
+
+#        log_config = {
+#         enable      = false
+#       }
+
+#       groups = [
+#         {
+#           group = google_compute_region_instance_group_manager.webappserver.instance_group
+#         }
+#       ]
+
+#       iap_config = {
+#         enable = false
+#       }
+#     }
+#   }
+# }
