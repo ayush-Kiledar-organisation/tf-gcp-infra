@@ -331,7 +331,7 @@ variable "cpu_utilization" {
 
 variable "vm_max_replicas" {
   type = number
-  default = 2
+  default = 6
   
 }
 
@@ -343,6 +343,6 @@ variable "distribution_policy_zones" {
 
 variable "vm_min_replicas" {
   type = number
-  default = 1
+  default = 3
   
 }
