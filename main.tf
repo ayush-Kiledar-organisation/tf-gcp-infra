@@ -98,6 +98,7 @@ resource "google_sql_database_instance" "db_instance" {
   region             = var.region
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
+  # encryption_key_name = google_kms_crypto_key.db-key.id
   settings {
     tier = var.db_instance_tier
     disk_type = var.disk_type
@@ -249,6 +250,9 @@ resource "google_project_iam_binding" "token_creator" {
 resource "google_storage_bucket" "bucket" {
   name     = "serverlerr-bucket"
   location = "US"
+  # encryption {
+  #   default_kms_key_name = google_kms_crypto_key.bucket-key.id
+  # }
 }
 
 resource "google_storage_bucket_object" "functioncode" {
@@ -415,6 +419,8 @@ resource "google_compute_region_instance_template" "webapp_template" {
   name        = "webapp-template"
   description = "Webapp instance template."
 
+  
+
   tags = ["${var.vpc}-${var.app_name}","lb-health-check","allow-health-check", "load-balancer-backend","http-server","https-server"]
 
   instance_description = "description assigned to instances"
@@ -426,15 +432,12 @@ resource "google_compute_region_instance_template" "webapp_template" {
     on_host_maintenance = "MIGRATE"
   }
 
-  
-
   disk {
     source_image      = "projects/${var.project_id}/global/images/${var.image_name}"
     auto_delete       = true
     boot              = true
     resource_policies = [google_compute_resource_policy.daily_backup.id]
   }
-
   network_interface {
     network    = google_compute_network.vpc.self_link
     subnetwork = google_compute_subnetwork.webapp.self_link
@@ -458,6 +461,7 @@ resource "google_compute_region_instance_template" "webapp_template" {
     scopes = var.vm_service_roles
   }
   
+
 }
 
 resource "google_compute_region_disk" "temp_disk" {
@@ -644,4 +648,39 @@ resource "google_dns_record_set" "dns_record" {
   ttl     = var.ttl
   managed_zone = var.zone_name
   rrdatas = [google_compute_global_address.lb-address.address]
+}
+
+resource "google_kms_key_ring" "webapp-keyring" {
+  name     = "webapp-keyring"
+  location = "us-central1"
+}
+
+resource "google_kms_crypto_key" "vm-key" {
+  name            = "vm-key"
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = "2592000s"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "db-key" {
+  name            = "db-key"
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = "2592000s"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "bucket-key" {
+  name            = "bucket-key"
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = "2592000s"
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
