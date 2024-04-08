@@ -539,7 +539,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
   named_port {
     name = "app"
     port = 3000
-  }
+  } 
 
   auto_healing_policies {
     health_check      = google_compute_health_check.webappcheck.id
@@ -654,7 +654,7 @@ resource "google_dns_record_set" "dns_record" {
 }
 
 resource "google_kms_key_ring" "webapp-keyring" {
-  name     = "webapp-keyring4"
+  name     = "webapp-keyring5"
   location = "us-central1"
 }
 
@@ -704,4 +704,12 @@ resource "google_kms_crypto_key_iam_binding" "key-binding-db" {
   crypto_key_id = google_kms_crypto_key.db-key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   members       = ["serviceAccount:${google_project_service_identity.cloudsql_identity.email}"] 
+}
+
+resource "google_project_iam_binding" "key_decrypter" {
+  project = var.project_id
+  role = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members = [
+    "serviceAccount:service-450277584514@compute-system.iam.gserviceaccount.com",
+  ]
 }
