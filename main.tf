@@ -98,7 +98,7 @@ resource "google_sql_database_instance" "db_instance" {
   region             = var.region
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
-  # encryption_key_name = google_kms_crypto_key.db-key.id
+  encryption_key_name = google_kms_crypto_key.db-key.id
   settings {
     tier = var.db_instance_tier
     disk_type = var.disk_type
@@ -249,10 +249,10 @@ resource "google_project_iam_binding" "token_creator" {
 
 resource "google_storage_bucket" "bucket" {
   name     = "serverlerr-bucket"
-  location = "US"
-  # encryption {
-  #   default_kms_key_name = google_kms_crypto_key.bucket-key.id
-  # }
+  location = "us-central1"
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.bucket-key.id
+  }
 }
 
 resource "google_storage_bucket_object" "functioncode" {
@@ -437,6 +437,9 @@ resource "google_compute_region_instance_template" "webapp_template" {
     auto_delete       = true
     boot              = true
     resource_policies = [google_compute_resource_policy.daily_backup.id]
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm-key.id
+    }
   }
   network_interface {
     network    = google_compute_network.vpc.self_link
@@ -651,7 +654,7 @@ resource "google_dns_record_set" "dns_record" {
 }
 
 resource "google_kms_key_ring" "webapp-keyring" {
-  name     = "webapp-keyring"
+  name     = "webapp-keyring4"
   location = "us-central1"
 }
 
@@ -683,4 +686,22 @@ resource "google_kms_crypto_key" "bucket-key" {
   lifecycle {
     prevent_destroy = false
   }
+}
+
+resource "google_kms_crypto_key_iam_binding" "key-binding" {
+  crypto_key_id = google_kms_crypto_key.bucket-key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = ["serviceAccount:service-450277584514@gs-project-accounts.iam.gserviceaccount.com"] 
+}
+
+resource "google_project_service_identity" "cloudsql_identity" {
+  provider  = google-beta
+  project   = var.project_id
+  service   = "sqladmin.googleapis.com"
+}
+
+resource "google_kms_crypto_key_iam_binding" "key-binding-db" {
+  crypto_key_id = google_kms_crypto_key.db-key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = ["serviceAccount:${google_project_service_identity.cloudsql_identity.email}"] 
 }
