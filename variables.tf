@@ -346,3 +346,61 @@ variable "vm_min_replicas" {
   default = 3
   
 }
+
+variable "compute_agent_account" {
+  type = string
+  default = "service-450277584514@compute-system.iam.gserviceaccount.com"
+  
+}
+
+variable "sqlidentity_name" {
+  type = string
+  default = "sqladmin.googleapis.com"
+  
+}
+
+variable "storage_account" {
+  type = string
+  default = "service-450277584514@gs-project-accounts.iam.gserviceaccount.com"
+}
+
+variable "bucket_key_name" {
+  type = string
+  default = "bucket-key"
+  
+}
+
+variable "rotation_period" {
+  type = string
+  default = "2592000s"
+  
+}
+
+variable "db_key_name" {
+  type = string
+  default = "db-key"
+  
+}
+
+variable "vm_key_name" {
+  type = string
+  default = "vm-key"
+  
+}
+
+variable "lb_subnet_name" {
+  type = string
+  default = "lb-subnet"
+  
+}
+
+variable "ssl_name_webapp" {
+  type = string
+  default = "webapp-ssl"
+}
+
+variable "keyring_name" {
+  type = string
+  default = "webapp-keyring7"
+  
+}

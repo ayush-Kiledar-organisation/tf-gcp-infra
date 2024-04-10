@@ -98,6 +98,7 @@ resource "google_sql_database_instance" "db_instance" {
   region             = var.region
   deletion_protection = false
   depends_on = [google_service_networking_connection.default]
+  encryption_key_name = google_kms_crypto_key.db-key.id
   settings {
     tier = var.db_instance_tier
     disk_type = var.disk_type
@@ -248,7 +249,10 @@ resource "google_project_iam_binding" "token_creator" {
 
 resource "google_storage_bucket" "bucket" {
   name     = "serverlerr-bucket"
-  location = "US"
+  location = "us-central1"
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.bucket-key.id
+  }
 }
 
 resource "google_storage_bucket_object" "functioncode" {
@@ -415,6 +419,8 @@ resource "google_compute_region_instance_template" "webapp_template" {
   name        = "webapp-template"
   description = "Webapp instance template."
 
+  
+
   tags = ["${var.vpc}-${var.app_name}","lb-health-check","allow-health-check", "load-balancer-backend","http-server","https-server"]
 
   instance_description = "description assigned to instances"
@@ -426,15 +432,15 @@ resource "google_compute_region_instance_template" "webapp_template" {
     on_host_maintenance = "MIGRATE"
   }
 
-  
-
   disk {
     source_image      = "projects/${var.project_id}/global/images/${var.image_name}"
     auto_delete       = true
     boot              = true
     resource_policies = [google_compute_resource_policy.daily_backup.id]
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm-key.id
+    }
   }
-
   network_interface {
     network    = google_compute_network.vpc.self_link
     subnetwork = google_compute_subnetwork.webapp.self_link
@@ -458,6 +464,7 @@ resource "google_compute_region_instance_template" "webapp_template" {
     scopes = var.vm_service_roles
   }
   
+
 }
 
 resource "google_compute_region_disk" "temp_disk" {
@@ -532,7 +539,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
   named_port {
     name = "app"
     port = 3000
-  }
+  } 
 
   auto_healing_policies {
     health_check      = google_compute_health_check.webappcheck.id
@@ -544,7 +551,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
 
 resource "google_compute_region_autoscaler" "webappAutoScaler" {
   name   = "webapp-autoscaler"
-  region = "us-central1"
+  region = var.region
   target = google_compute_region_instance_group_manager.webappserver.id
 
   autoscaling_policy {
@@ -560,7 +567,7 @@ resource "google_compute_region_autoscaler" "webappAutoScaler" {
 
 resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   provider = google-beta
-  name     = "webapp-ssl"
+  name     = var.ssl_name_webapp
   project = var.project_id
 
   managed {
@@ -569,11 +576,11 @@ resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
 }
 
 resource "google_compute_subnetwork" "lb-subnet" {
-  name          = "lb-subnet"
+  name          = var.lb_subnet_name
   project = var.project_id
   provider      = google-beta
   ip_cidr_range = var.cidr3
-  region        = "us-central1"
+  region        = var.region
   network       = google_compute_network.vpc.id
   private_ip_google_access = true
   
@@ -644,4 +651,71 @@ resource "google_dns_record_set" "dns_record" {
   ttl     = var.ttl
   managed_zone = var.zone_name
   rrdatas = [google_compute_global_address.lb-address.address]
+}
+
+resource "random_string" "random_name" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+resource "google_kms_key_ring" "webapp-keyring" {
+  name     = "webappkeyring-${random_string.random_name.result}"
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "vm-key" {
+  name            = var.vm_key_name
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = var.rotation_period
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "db-key" {
+  name            = var.db_key_name
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = var.rotation_period
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "bucket-key" {
+  name            = var.bucket_key_name
+  key_ring        = google_kms_key_ring.webapp-keyring.id
+  rotation_period = var.rotation_period
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key_iam_binding" "key-binding" {
+  crypto_key_id = google_kms_crypto_key.bucket-key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = ["serviceAccount:${var.storage_account}"] 
+}
+
+resource "google_project_service_identity" "cloudsql_identity" {
+  provider  = google-beta
+  project   = var.project_id
+  service   = var.sqlidentity_name
+}
+
+resource "google_kms_crypto_key_iam_binding" "key-binding-db" {
+  crypto_key_id = google_kms_crypto_key.db-key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = ["serviceAccount:${google_project_service_identity.cloudsql_identity.email}"] 
+}
+
+resource "google_project_iam_binding" "key_decrypter" {
+  project = var.project_id
+  role = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members = [
+    "serviceAccount:${var.compute_agent_account}",
+  ]
 }
