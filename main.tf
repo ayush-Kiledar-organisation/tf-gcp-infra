@@ -551,7 +551,7 @@ resource "google_compute_region_instance_group_manager" "webappserver" {
 
 resource "google_compute_region_autoscaler" "webappAutoScaler" {
   name   = "webapp-autoscaler"
-  region = "us-central1"
+  region = var.region
   target = google_compute_region_instance_group_manager.webappserver.id
 
   autoscaling_policy {
@@ -567,7 +567,7 @@ resource "google_compute_region_autoscaler" "webappAutoScaler" {
 
 resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   provider = google-beta
-  name     = "webapp-ssl"
+  name     = var.ssl_name_webapp
   project = var.project_id
 
   managed {
@@ -576,11 +576,11 @@ resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
 }
 
 resource "google_compute_subnetwork" "lb-subnet" {
-  name          = "lb-subnet"
+  name          = var.lb_subnet_name
   project = var.project_id
   provider      = google-beta
   ip_cidr_range = var.cidr3
-  region        = "us-central1"
+  region        = var.region
   network       = google_compute_network.vpc.id
   private_ip_google_access = true
   
@@ -653,15 +653,21 @@ resource "google_dns_record_set" "dns_record" {
   rrdatas = [google_compute_global_address.lb-address.address]
 }
 
+resource "random_string" "random_name" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
 resource "google_kms_key_ring" "webapp-keyring" {
-  name     = "webapp-keyring5"
-  location = "us-central1"
+  name     = "webappkeyring-${random_string.random_name.result}"
+  location = var.region
 }
 
 resource "google_kms_crypto_key" "vm-key" {
-  name            = "vm-key"
+  name            = var.vm_key_name
   key_ring        = google_kms_key_ring.webapp-keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
 
   lifecycle {
     prevent_destroy = false
@@ -669,9 +675,9 @@ resource "google_kms_crypto_key" "vm-key" {
 }
 
 resource "google_kms_crypto_key" "db-key" {
-  name            = "db-key"
+  name            = var.db_key_name
   key_ring        = google_kms_key_ring.webapp-keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
 
   lifecycle {
     prevent_destroy = false
@@ -679,9 +685,9 @@ resource "google_kms_crypto_key" "db-key" {
 }
 
 resource "google_kms_crypto_key" "bucket-key" {
-  name            = "bucket-key"
+  name            = var.bucket_key_name
   key_ring        = google_kms_key_ring.webapp-keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
 
   lifecycle {
     prevent_destroy = false
@@ -691,13 +697,13 @@ resource "google_kms_crypto_key" "bucket-key" {
 resource "google_kms_crypto_key_iam_binding" "key-binding" {
   crypto_key_id = google_kms_crypto_key.bucket-key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  members       = ["serviceAccount:service-450277584514@gs-project-accounts.iam.gserviceaccount.com"] 
+  members       = ["serviceAccount:${var.storage_account}"] 
 }
 
 resource "google_project_service_identity" "cloudsql_identity" {
   provider  = google-beta
   project   = var.project_id
-  service   = "sqladmin.googleapis.com"
+  service   = var.sqlidentity_name
 }
 
 resource "google_kms_crypto_key_iam_binding" "key-binding-db" {
@@ -710,6 +716,6 @@ resource "google_project_iam_binding" "key_decrypter" {
   project = var.project_id
   role = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   members = [
-    "serviceAccount:service-450277584514@compute-system.iam.gserviceaccount.com",
+    "serviceAccount:${var.compute_agent_account}",
   ]
 }
