@@ -172,7 +172,7 @@ variable "availability_type" {
 
 variable "azone" {
   type    = string
-  default = "ayush-kiledar-webapp.me." 
+  default = "app domain" 
 }
 
 variable "ztype" {
@@ -259,7 +259,7 @@ variable "rm_special" {
 
 variable "function_api_key" {
   type = string
-  default = "3369a6c668bd2f5cb16346c87b7ccdb7-309b0ef4-998219c5"
+  default = "confidential key"
 }
 
 variable "function_domain" {
