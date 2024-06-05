@@ -571,7 +571,7 @@ resource "google_compute_managed_ssl_certificate" "webapp-ssl" {
   project = var.project_id
 
   managed {
-    domains = ["ayush-kiledar-webapp.me"]
+    domains = [var.dname]
   }
 }
 
@@ -619,7 +619,7 @@ resource "google_compute_url_map" "urlmap" {
   default_service = google_compute_backend_service.default.id
 
   # host_rule {
-  #   hosts        = ["ayush-kiledar-webapp.me"]
+  #   hosts        = [var.dname]
   #   path_matcher = "webappmatcher"
   # }
 
